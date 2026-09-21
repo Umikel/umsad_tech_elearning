@@ -3,6 +3,17 @@
  * Session Test - Verify session functionality
  */
 
+require_once __DIR__ . '/includes/config.php';
+$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+if (PHP_SAPI !== 'cli' && (APP_ENV !== 'development' || !in_array($remoteAddress, ['127.0.0.1', '::1'], true))) {
+    http_response_code(404);
+    exit;
+}
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+header('Content-Type: text/plain; charset=utf-8');
+
 // Enable error reporting
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -98,7 +109,7 @@ echo "4. If YES - sessions are working ✅\n";
 echo "5. If NO - session issue needs fixing ❌\n\n";
 
 echo "🔗 QUICK LINKS:\n";
-echo "   Login: <a href='http://localhost/umsadtech/login.php'>http://localhost/umsadtech/login.php</a>\n";
-echo "   Register: <a href='http://localhost/umsadtech/register.php'>http://localhost/umsadtech/register.php</a>\n";
-echo "   Seed Data: <a href='http://localhost/umsadtech/seed-data.php'>http://localhost/umsadtech/seed-data.php</a>\n";
+echo "   Login: " . APP_URL . "/login.php\n";
+echo "   Register: " . APP_URL . "/register.php\n";
+echo "   Seed data (CLI only): php seed-data.php\n";
 ?>

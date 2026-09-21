@@ -3,6 +3,12 @@
 require_once 'includes/config.php';
 require_once 'includes/Database.php';
 
+$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+if (PHP_SAPI !== 'cli' && (APP_ENV !== 'development' || !in_array($remoteAddress, ['127.0.0.1', '::1'], true))) {
+    http_response_code(404);
+    exit;
+}
+
 try {
     $db = new Database();
     echo "✅ Database Connected Successfully!<br>";

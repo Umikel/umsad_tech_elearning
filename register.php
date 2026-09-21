@@ -1,193 +1,202 @@
 <?php
-// Enable error reporting
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-require_once 'includes/config.php';
-require_once 'includes/Database.php';
-require_once 'includes/Auth.php';
-require_once 'includes/helpers.php';
+/** Create a learner account. Public registration never accepts a role. */
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/Auth.php';
+require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/EmailVerification.php';
+require_once __DIR__ . '/includes/NotificationService.php';
 
 $db = new Database();
 $auth = new Auth($db);
 $errors = [];
+$values = ['full_name' => '', 'email' => ''];
 
-// Check if already logged in
-if ($auth->isLoggedIn()) {
-    redirect(APP_URL . '/student/dashboard.php');
+if ($auth->isLoggedIn() && $auth->verifySession()) {
+    redirect('/' . $auth->getDashboardPath());
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $full_name = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $password_confirm = $_POST['password_confirm'] ?? '';
-    $user_type = trim($_POST['user_type'] ?? 'student');
-    $terms = isset($_POST['terms']) ? 1 : 0;
-
-    // Validation
-    if (empty($full_name)) {
-        $errors['full_name'] = 'Full name is required';
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? null)) {
+        $errors['form'] = 'Your session expired. Refresh the page and try again.';
     }
 
-    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors['email'] = 'Valid email is required';
+    $values['full_name'] = trim($_POST['full_name'] ?? '');
+    $values['email'] = strtolower(trim($_POST['email'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+    $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
+    $termsAccepted = isset($_POST['terms']);
+
+    if (mb_strlen($values['full_name']) < 2 || mb_strlen($values['full_name']) > 120) {
+        $errors['full_name'] = 'Enter your full name (2–120 characters).';
+    }
+    if (!filter_var($values['email'], FILTER_VALIDATE_EMAIL)) {
+        $errors['email'] = 'Enter a valid email address.';
+    }
+    if (strlen($password) < 10 || strlen($password) > 72 || !preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) {
+        $errors['password'] = 'Use 10–72 characters with a letter and a number.';
+    }
+    if ($password !== $passwordConfirm) {
+        $errors['password_confirm'] = 'The passwords do not match.';
+    }
+    if (!$termsAccepted) {
+        $errors['terms'] = 'Please accept the learner agreement to continue.';
     }
 
-    if (empty($password) || strlen($password) < 8) {
-        $errors['password'] = 'Password must be at least 8 characters';
+    if (empty($errors) && (!defined('MAIL_CONFIGURED') || !MAIL_CONFIGURED)) {
+        $errors['form'] = 'Account registration is temporarily unavailable while email delivery is being configured.';
     }
 
-    if ($password !== $password_confirm) {
-        $errors['password_confirm'] = 'Passwords do not match';
-    }
-
-    if (!$terms) {
-        $errors['terms'] = 'You must accept the terms and conditions';
-    }
-
-    // If no errors, register user
     if (empty($errors)) {
         try {
-            // Check if email already exists
-            $db_check = new Database();
-            $db_check->query('SELECT id FROM users WHERE email = :email');
-            $db_check->bind(':email', $email);
-            if ($db_check->single()) {
-                $errors['email'] = 'Email already registered';
-            } else {
-                // Register new user
-                $result = $auth->register($email, $password, $full_name, $user_type);
-                if ($result['success']) {
-                    $_SESSION['success_message'] = 'Registration successful! Please login with your credentials.';
-                    redirect(APP_URL . '/login.php');
-                } else {
-                    $errors['form'] = $result['message'] ?? 'Registration failed. Please try again.';
+            $result = $auth->register($values['email'], $password, $values['full_name'], 'student');
+            if ($result['success']) {
+                $userId = (int) ($result['user_id'] ?? 0);
+                $_SESSION['verification_email'] = $values['email'];
+
+                try {
+                    $verification = new EmailVerification($db);
+                    $delivery = $verification->sendForUser($userId);
+                    $_SESSION['verification_notice'] = !empty($delivery['sent'])
+                        ? 'We sent a secure verification link to your email address.'
+                        : 'Your account was created, but the verification email could not be sent yet. Please request another link.';
+                } catch (Throwable $mailException) {
+                    error_log('Initial verification email delivery failed for user ' . $userId . '.');
+                    $_SESSION['verification_notice'] = 'Your account was created, but the verification email could not be sent yet. Please request another link.';
                 }
+
+                try {
+                    $notifications = new NotificationService($db);
+                    $notifications->dispatchBestEffort(
+                        is_array($result['notification_event_keys'] ?? null)
+                            ? $result['notification_event_keys']
+                            : []
+                    );
+                } catch (Throwable $notificationException) {
+                    error_log('The signup welcome notification remains queued for retry.');
+                }
+
+                redirect('/resend-verification.php?registered=1', 303);
             }
-        } catch (Exception $e) {
-            $errors['form'] = 'An error occurred. Please try again later.';
+            $errors['form'] = $result['message'] ?? 'We could not create your account.';
+        } catch (Throwable $exception) {
+            error_log('Registration failed: ' . $exception->getMessage());
+            $errors['form'] = 'We could not create your account right now. Please try again.';
         }
     }
 }
+
+$pageTitle = 'Create account';
+$pageNoIndex = true;
+require_once __DIR__ . '/templates/header.php';
 ?>
-<?php include 'templates/header.php'; ?>
 
-<div class="container auth-container">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card auth-card">
-                <div class="card-body">
-                    <h2 class="card-title text-center mb-4">Create Account</h2>
-                    <p class="text-center text-muted small mb-4">Join Umsad Tech E-Learning Platform</p>
+<section class="auth-section">
+    <div class="container">
+        <div class="auth-layout auth-layout-register">
+            <aside class="auth-story" aria-label="Start learning with Umsad Tech">
+                <a class="auth-brand" href="<?php echo APP_URL; ?>" aria-label="Umsad Tech home">
+                    <span class="brand-logo-frame brand-logo-frame--auth" aria-hidden="true">
+                        <img class="brand-logo-image" src="<?php echo sanitize($versionedAsset('/assets/images/umsad-tech-logo.png')); ?>" alt="" width="1536" height="1024">
+                    </span>
+                </a>
+                <span class="eyebrow text-white">Start for free</span>
+                <h1>Turn curiosity into real-world capability.</h1>
+                <p>Create your learner profile and get a clear path from first lesson to finished project.</p>
+                <div class="auth-metric-grid" aria-label="Platform highlights">
+                    <div><strong>Self-paced</strong><span>Learn on your schedule</span></div>
+                    <div><strong>Practical</strong><span>Build as you learn</span></div>
+                </div>
+            </aside>
 
-                    <?php if (!empty($errors['form'])): ?>
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-circle"></i> <?php echo $errors['form']; ?>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="auth-panel">
+                <div class="auth-panel-header">
+                    <span class="auth-icon"><i class="fas fa-user-plus" aria-hidden="true"></i></span>
+                    <div>
+                        <p class="auth-kicker">Join the community</p>
+                        <h2>Create your account</h2>
+                    </div>
+                </div>
+
+                <?php if (!empty($errors['form'])): ?>
+                    <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                        <?php echo sanitize($errors['form']); ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST" class="auth-form" novalidate>
+                    <?php echo csrfField(); ?>
+
+                    <div class="form-field">
+                        <label for="full_name" class="form-label">Full name</label>
+                        <div class="field-control <?php echo hasError('full_name', $errors) ? 'has-error' : ''; ?>">
+                            <i class="far fa-user" aria-hidden="true"></i>
+                            <input type="text" id="full_name" name="full_name" value="<?php echo sanitize($values['full_name']); ?>"
+                                   autocomplete="name" placeholder="Your full name" required autofocus>
                         </div>
-                    <?php endif; ?>
+                        <?php if (hasError('full_name', $errors)): ?>
+                            <p class="form-error"><?php echo sanitize(getError('full_name', $errors)); ?></p>
+                        <?php endif; ?>
+                    </div>
 
-                    <form method="POST" novalidate>
-                        <div class="mb-3">
-                            <label for="full_name" class="form-label">Full Name</label>
-                            <input type="text" 
-                                   class="form-control <?php echo hasError('full_name', $errors) ? 'is-invalid' : ''; ?>" 
-                                   id="full_name" 
-                                   name="full_name" 
-                                   placeholder="Enter your full name"
-                                   value="<?php echo isset($_POST['full_name']) ? sanitize($_POST['full_name']) : ''; ?>"
-                                   required>
-                            <?php if (hasError('full_name', $errors)): ?>
-                                <div class="form-error"><?php echo getError('full_name', $errors); ?></div>
-                            <?php endif; ?>
+                    <div class="form-field">
+                        <label for="email" class="form-label">Email address</label>
+                        <div class="field-control <?php echo hasError('email', $errors) ? 'has-error' : ''; ?>">
+                            <i class="far fa-envelope" aria-hidden="true"></i>
+                            <input type="email" id="email" name="email" value="<?php echo sanitize($values['email']); ?>"
+                                   autocomplete="email" inputmode="email" placeholder="you@example.com" required>
                         </div>
+                        <?php if (hasError('email', $errors)): ?>
+                            <p class="form-error"><?php echo sanitize(getError('email', $errors)); ?></p>
+                        <?php endif; ?>
+                    </div>
 
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email Address</label>
-                            <input type="email" 
-                                   class="form-control <?php echo hasError('email', $errors) ? 'is-invalid' : ''; ?}" 
-                                   id="email" 
-                                   name="email" 
-                                   placeholder="Enter your email"
-                                   value="<?php echo isset($_POST['email']) ? sanitize($_POST['email']) : ''; ?>"
-                                   required>
-                            <?php if (hasError('email', $errors)): ?>
-                                <div class="form-error"><?php echo getError('email', $errors); ?></div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="user_type" class="form-label">I want to register as:</label>
-                            <select class="form-select" id="user_type" name="user_type">
-                                <option value="student" <?php echo isset($_POST['user_type']) && $_POST['user_type'] === 'student' ? 'selected' : ''; ?>>Student</option>
-                                <option value="instructor" <?php echo isset($_POST['user_type']) && $_POST['user_type'] === 'instructor' ? 'selected' : ''; ?>>Instructor</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
+                    <div class="form-row">
+                        <div class="form-field">
                             <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" 
-                                       class="form-control <?php echo hasError('password', $errors) ? 'is-invalid' : ''; ?}" 
-                                       id="password" 
-                                       name="password" 
-                                       placeholder="Min 8 characters"
-                                       required>
-                                <button class="btn btn-outline-secondary" 
-                                        type="button" 
-                                        onclick="togglePasswordVisibility('password', 'passwordIcon')">
-                                    <i id="passwordIcon" class="fas fa-eye-slash"></i>
+                            <div class="field-control <?php echo hasError('password', $errors) ? 'has-error' : ''; ?>">
+                                <i class="fas fa-lock" aria-hidden="true"></i>
+                                <input type="password" id="password" name="password" minlength="10" maxlength="72" autocomplete="new-password" placeholder="10+ characters" required>
+                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', 'passwordIcon')" aria-label="Show or hide password">
+                                    <i id="passwordIcon" class="far fa-eye" aria-hidden="true"></i>
                                 </button>
                             </div>
                             <?php if (hasError('password', $errors)): ?>
-                                <div class="form-error"><?php echo getError('password', $errors); ?></div>
+                                <p class="form-error"><?php echo sanitize(getError('password', $errors)); ?></p>
                             <?php endif; ?>
                         </div>
 
-                        <div class="mb-3">
-                            <label for="password_confirm" class="form-label">Confirm Password</label>
-                            <div class="input-group">
-                                <input type="password" 
-                                       class="form-control <?php echo hasError('password_confirm', $errors) ? 'is-invalid' : ''; ?}" 
-                                       id="password_confirm" 
-                                       name="password_confirm" 
-                                       placeholder="Confirm your password"
-                                       required>
-                                <button class="btn btn-outline-secondary" 
-                                        type="button" 
-                                        onclick="togglePasswordVisibility('password_confirm', 'passwordConfirmIcon')">
-                                    <i id="passwordConfirmIcon" class="fas fa-eye-slash"></i>
-                                </button>
+                        <div class="form-field">
+                            <label for="password_confirm" class="form-label">Confirm password</label>
+                            <div class="field-control <?php echo hasError('password_confirm', $errors) ? 'has-error' : ''; ?>">
+                                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                                <input type="password" id="password_confirm" name="password_confirm" minlength="10" maxlength="72" autocomplete="new-password" placeholder="Repeat password" required>
                             </div>
                             <?php if (hasError('password_confirm', $errors)): ?>
-                                <div class="form-error"><?php echo getError('password_confirm', $errors); ?></div>
+                                <p class="form-error"><?php echo sanitize(getError('password_confirm', $errors)); ?></p>
                             <?php endif; ?>
                         </div>
-
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="terms" name="terms" <?php echo isset($_POST['terms']) ? 'checked' : ''; ?>>
-                            <label class="form-check-label" for="terms">
-                                I agree to the <a href="#" class="text-decoration-none">Terms and Conditions</a>
-                            </label>
-                            <?php if (hasError('terms', $errors)): ?>
-                                <div class="form-error d-block"><?php echo getError('terms', $errors); ?></div>
-                            <?php endif; ?>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100 mb-3">
-                            <i class="fas fa-user-plus"></i> Create Account
-                        </button>
-                    </form>
-
-                    <div class="auth-link">
-                        <p>Already have an account? <a href="<?php echo APP_URL; ?>/login.php">Sign in here</a></p>
                     </div>
-                </div>
+
+                    <label class="check-row">
+                        <input type="checkbox" name="terms" value="1" <?php echo isset($_POST['terms']) ? 'checked' : ''; ?> required>
+                        <span>I agree to the <a href="<?php echo APP_URL; ?>/terms.php" target="_blank" rel="noopener">Terms of Use</a> and <a href="<?php echo APP_URL; ?>/privacy.php" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+                    </label>
+                    <?php if (hasError('terms', $errors)): ?>
+                        <p class="form-error"><?php echo sanitize(getError('terms', $errors)); ?></p>
+                    <?php endif; ?>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        Create free account <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    </button>
+                    <p class="verification-footnote"><i class="fas fa-envelope-circle-check" aria-hidden="true"></i> We’ll email you a secure link to verify your account.</p>
+                </form>
+
+                <p class="auth-switch">Already learning with us? <a href="<?php echo APP_URL; ?>/login.php">Sign in</a></p>
             </div>
         </div>
     </div>
-</div>
+</section>
 
-<?php include 'templates/footer.php'; ?>
+<?php require_once __DIR__ . '/templates/footer.php'; ?>

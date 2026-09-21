@@ -5,6 +5,15 @@
  */
 require_once 'includes/config.php';
 
+$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+if (PHP_SAPI !== 'cli' && (APP_ENV !== 'development' || !in_array($remoteAddress, ['127.0.0.1', '::1'], true))) {
+    http_response_code(404);
+    exit;
+}
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 ?>
@@ -89,9 +98,6 @@ ini_set('display_errors', 1);
                 <div class="test-item">
                     <span>Session Status</span>
                     <?php
-                    if (session_status() === PHP_SESSION_NONE) {
-                        session_start();
-                    }
                     echo '<span class="status pass">✅ Active</span>';
                     ?>
                 </div>
@@ -109,7 +115,7 @@ ini_set('display_errors', 1);
                         $auth = new Auth($db);
                         if ($auth->isLoggedIn()) {
                             $user = $auth->getUser();
-                            echo '<span class="status pass">✅ ' . $user['full_name'] . '</span>';
+                            echo '<span class="status pass">✅ ' . htmlspecialchars((string) $user['full_name'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
                         } else {
                             echo '<span class="status fail">❌ Not logged in</span>';
                         }
@@ -127,10 +133,8 @@ ini_set('display_errors', 1);
             </div>
             <div class="card-body">
                 <div class="info-box">
-                    <strong>Test Accounts Available:</strong><br>
-                    📧 student@example.com (password: student123)<br>
-                    📧 instructor@example.com (password: instructor123)<br>
-                    📧 admin@example.com (password: admin123)
+                    <strong>Development accounts:</strong><br>
+                    Run <code>php seed-data.php</code> from the project directory. The CLI-only seeder generates strong passwords and prints them once; no fixed passwords are stored here.
                 </div>
 
                 <div class="d-flex flex-wrap gap-2">
@@ -138,7 +142,6 @@ ini_set('display_errors', 1);
                     <a href="<?php echo APP_URL; ?>/register.php" class="btn btn-success btn-test">✏️ Test Register</a>
                     <a href="<?php echo APP_URL; ?>/courses.php" class="btn btn-info btn-test">📚 View Courses</a>
                     <a href="<?php echo APP_URL; ?>/test-session.php" class="btn btn-secondary btn-test">🧪 Session Test</a>
-                    <a href="<?php echo APP_URL; ?>/seed-data.php" class="btn btn-dark btn-test">🌱 Seed Data</a>
                 </div>
             </div>
         </div>
@@ -148,13 +151,11 @@ ini_set('display_errors', 1);
                 <h5 class="mb-0">Setup Checklist</h5>
             </div>
             <div class="card-body">
-                <ul class="list-unstyled">
-                    <li>✅ <strong>Database Schema Imported</strong> - All tables created</li>
-                    <li>✅ <strong>Sample Data Seeded</strong> - 5 users, 4 courses, etc.</li>
-                    <li>✅ <strong>Configuration Set</strong> - DB credentials configured</li>
-                    <li>✅ <strong>Authentication Ready</strong> - Session and Auth class working</li>
-                    <li>✅ <strong>Navigation Fixed</strong> - All links using APP_URL</li>
-                    <li>✅ <strong>Errors Showing</strong> - Display errors enabled for debugging</li>
+                <ul class="list-unstyled mb-0">
+                    <li>• Confirm the database, user, and course results above.</li>
+                    <li>• Exercise login and registration with development-only data.</li>
+                    <li>• Run the full PHP lint command documented in <code>README.md</code>.</li>
+                    <li>• Treat this dashboard as diagnostics, not as a production health check.</li>
                 </ul>
             </div>
         </div>
@@ -189,8 +190,8 @@ ini_set('display_errors', 1);
 
         <hr>
         <p class="text-center text-muted">
-            🎉 Your Umsad Tech E-Learning platform is ready!<br>
-            Questions? Check the troubleshooting section above.
+            Review every result above before continuing with local testing.<br>
+            This page is available only on localhost in development mode.
         </p>
     </div>
 </body>

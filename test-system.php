@@ -1,5 +1,12 @@
 <?php
 // Enable error reporting
+require_once __DIR__ . '/includes/config.php';
+$remoteAddress = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+if (PHP_SAPI !== 'cli' && (APP_ENV !== 'development' || !in_array($remoteAddress, ['127.0.0.1', '::1'], true))) {
+    http_response_code(404);
+    exit;
+}
+
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -40,7 +47,7 @@ try {
 echo "\n3. Testing Auth Class...\n";
 try {
     require_once 'includes/Auth.php';
-    $auth = new Auth();
+    $auth = new Auth($db);
     echo "✅ Auth class loaded\n";
 } catch (Exception $e) {
     echo "❌ Auth Error: " . $e->getMessage() . "\n";
@@ -54,6 +61,6 @@ try {
     echo "❌ Helpers Error: " . $e->getMessage() . "\n";
 }
 
-echo "\n✅ ALL SYSTEMS GO! Register page should work now.\n";
+echo "\n✅ DIAGNOSTIC CHECKS COMPLETE. Review each result above.\n";
 echo "\nGo to: http://localhost/umsadtech/register.php\n";
 ?>

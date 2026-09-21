@@ -1,398 +1,297 @@
 /**
- * Umsad Tech E-Learning Platform
- * Custom JavaScript
+ * Umsad Tech application interactions.
+ * Kept framework-free so the core experience survives a third-party CDN issue.
  */
+(function () {
+    'use strict';
 
-// Document Ready
-$(document).ready(function() {
-    initializeTooltips();
-    initializeFormValidation();
-    initializeScrollAnimations();
-});
+    const appMeta = document.querySelector('meta[name="app-url"]');
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const baseUrl = (appMeta?.content || '').replace(/\/$/, '');
+    const csrfToken = csrfMeta?.content || '';
 
-/** Reveal homepage content as it enters the viewport. */
-function initializeScrollAnimations() {
-    const items = document.querySelectorAll('.reveal');
-    if (!items.length) return;
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeTooltips();
+        initializeFormValidation();
+        initializeScrollAnimations();
+        initializeNavbar();
+        initializeAutoDismissAlerts();
+        initializeCourseAnnouncement();
+    });
 
-    if (!('IntersectionObserver' in window)) {
-        items.forEach(item => item.classList.add('is-visible'));
-        return;
+    function initializeTooltips() {
+        if (!window.bootstrap?.Tooltip) return;
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => {
+            new window.bootstrap.Tooltip(element);
+        });
     }
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
+    function initializeFormValidation() {
+        document.querySelectorAll('form[novalidate]').forEach(form => {
+            form.addEventListener('submit', event => {
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const firstInvalid = form.querySelector(':invalid');
+                    firstInvalid?.focus({ preventScroll: true });
+                    firstInvalid?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+                }
+                form.classList.add('was-validated');
+            });
+        });
+    }
+
+    function initializeScrollAnimations() {
+        const items = document.querySelectorAll('.reveal');
+        if (!items.length) return;
+
+        if (prefersReducedMotion() || !('IntersectionObserver' in window)) {
+            items.forEach(item => item.classList.add('is-visible'));
+            return;
+        }
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
                 entry.target.classList.add('is-visible');
                 observer.unobserve(entry.target);
-            }
-        });
-    }, { threshold: 0.14 });
-
-    items.forEach(item => observer.observe(item));
-}
-
-/**
- * Initialize Bootstrap Tooltips
- */
-function initializeTooltips() {
-    $('[data-bs-toggle="tooltip"]').each(function() {
-        new bootstrap.Tooltip(this);
-    });
-}
-
-/**
- * Initialize Form Validation
- */
-function initializeFormValidation() {
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (!form.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        });
-    });
-}
-
-/**
- * Show Success Message
- */
-function showSuccess(message) {
-    const alertHtml = `
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    $(alertHtml).prependTo('.main-content').delay(5000).fadeOut('slow');
-}
-
-/**
- * Show Error Message
- */
-function showError(message) {
-    const alertHtml = `
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    $(alertHtml).prependTo('.main-content').delay(5000).fadeOut('slow');
-}
-
-/**
- * Show Warning Message
- */
-function showWarning(message) {
-    const alertHtml = `
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-    $(alertHtml).prependTo('.main-content').delay(5000).fadeOut('slow');
-}
-
-/**
- * AJAX Request Helper
- */
-function makeRequest(url, method = 'GET', data = null, callback = null) {
-    $.ajax({
-        url: url,
-        type: method,
-        data: data,
-        dataType: 'json',
-        success: function(response) {
-            if (callback) {
-                callback(response);
-            }
-        },
-        error: function(xhr, status, error) {
-            showError('An error occurred: ' + error);
-        }
-    });
-}
-
-/**
- * Confirm Dialog
- */
-function confirmAction(message, callback) {
-    if (confirm(message)) {
-        callback();
-    }
-}
-
-/**
- * Format Currency
- */
-function formatCurrency(amount) {
-    return '₦' + parseFloat(amount).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-}
-
-/**
- * Format Date
- */
-function formatDate(date, format = 'DD/MM/YYYY') {
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    
-    switch (format) {
-        case 'DD/MM/YYYY':
-            return `${day}/${month}/${year}`;
-        case 'YYYY-MM-DD':
-            return `${year}-${month}-${day}`;
-        default:
-            return d.toString();
-    }
-}
-
-/**
- * Get Query Parameter
- */
-function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
-}
-
-/**
- * Calculate Reading Time
- */
-function calculateReadingTime(text, wordsPerMinute = 200) {
-    const words = text.trim().split(/\s+/).length;
-    const minutes = Math.ceil(words / wordsPerMinute);
-    return minutes;
-}
-
-/**
- * Toggle Password Visibility
- */
-function togglePasswordVisibility(inputId, iconId) {
-    const input = document.getElementById(inputId);
-    const icon = document.getElementById(iconId);
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-    } else {
-        input.type = 'password';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
-    }
-}
-
-/**
- * Debounce Function
- */
-function debounce(func, delay) {
-    let timeoutId;
-    return function(...args) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-    };
-}
-
-/**
- * Throttle Function
- */
-function throttle(func, limit) {
-    let inThrottle;
-    return function(...args) {
-        if (!inThrottle) {
-            func.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    };
-}
-
-/**
- * Local Storage Helper
- */
-const Storage = {
-    set: function(key, value) {
-        localStorage.setItem(key, JSON.stringify(value));
-    },
-    get: function(key) {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : null;
-    },
-    remove: function(key) {
-        localStorage.removeItem(key);
-    },
-    clear: function() {
-        localStorage.clear();
-    }
-};
-
-/**
- * Initialize Video Player with Custom Controls
- */
-function initializeVideoPlayer(videoId) {
-    const video = document.getElementById(videoId);
-    if (!video) return;
-    
-    video.addEventListener('play', function() {
-        recordVideoProgress(videoId, 'play');
-    });
-    
-    video.addEventListener('pause', function() {
-        recordVideoProgress(videoId, 'pause');
-    });
-    
-    video.addEventListener('ended', function() {
-        recordVideoProgress(videoId, 'completed');
-    });
-}
-
-/**
- * Record Video Progress (AJAX)
- */
-function recordVideoProgress(videoId, action) {
-    makeRequest('/api/track-video.php', 'POST', {
-        video_id: videoId,
-        action: action,
-        timestamp: new Date().getTime()
-    });
-}
-
-/**
- * Initialize Paystack Payment
- */
-function initializePaystackPayment(publicKey, email, amount, reference) {
-    const handler = PaystackPop.setup({
-        key: publicKey,
-        email: email,
-        amount: amount * 100, // Paystack uses kobo
-        ref: reference,
-        onClose: function() {
-            showWarning('Payment window closed.');
-        },
-        onSuccess: function(response) {
-            verifyPaystackPayment(reference);
-        }
-    });
-    handler.openIframe();
-}
-
-/**
- * Verify Paystack Payment
- */
-function verifyPaystackPayment(reference) {
-    makeRequest('/api/verify-payment.php', 'POST', {
-        reference: reference
-    }, function(response) {
-        if (response.success) {
-            showSuccess(response.message);
-            setTimeout(() => {
-                window.location.href = response.redirect || '/student/my-courses.php';
-            }, 2000);
-        } else {
-            showError(response.message);
-        }
-    });
-}
-
-/**
- * Initialize Drag & Drop File Upload
- */
-function initializeDragDropUpload(dropZoneId, fileInputId) {
-    const dropZone = document.getElementById(dropZoneId);
-    const fileInput = document.getElementById(fileInputId);
-    
-    if (!dropZone || !fileInput) return;
-    
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-    
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('drag-over');
-    });
-    
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        fileInput.files = e.dataTransfer.files;
-        fileInput.dispatchEvent(new Event('change'));
-    });
-}
-
-/**
- * Show Loading Spinner
- */
-function showSpinner(containerId) {
-    const container = document.getElementById(containerId);
-    if (container) {
-        container.innerHTML = '<div class="spinner"></div>';
-    }
-}
-
-/**
- * Initialize Data Table with Search
- */
-function initializeDataTable(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    
-    const rows = table.querySelectorAll('tbody tr');
-    const searchInput = document.querySelector(`[data-table-search="${tableId}"]`);
-    
-    if (searchInput) {
-        searchInput.addEventListener('keyup', debounce(function() {
-            const searchTerm = this.value.toLowerCase();
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchTerm) ? '' : 'none';
             });
-        }, 300));
+        }, { threshold: 0.12, rootMargin: '0px 0px -24px' });
+
+        items.forEach(item => observer.observe(item));
     }
-}
 
-/**
- * Copy to Clipboard
- */
-function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        showSuccess('Copied to clipboard!');
-    }).catch(err => {
-        showError('Failed to copy');
-    });
-}
+    function initializeNavbar() {
+        const navbar = document.querySelector('.site-navbar');
+        if (!navbar) return;
 
-/**
- * Rate Limiting Function
- */
-function rateLimit(func, interval) {
-    let lastCall = 0;
-    return function(...args) {
-        const now = Date.now();
-        if (now - lastCall >= interval) {
-            lastCall = now;
-            return func.apply(this, args);
+        const sync = () => navbar.classList.toggle('is-scrolled', window.scrollY > 16);
+        sync();
+        window.addEventListener('scroll', throttle(sync, 80), { passive: true });
+
+        document.querySelectorAll('.site-navbar .nav-link').forEach(link => {
+            const target = new URL(link.href, window.location.href);
+            if (target.pathname === window.location.pathname) {
+                link.setAttribute('aria-current', 'page');
+                link.classList.add('active');
+            }
+        });
+    }
+
+    function initializeAutoDismissAlerts() {
+        document.querySelectorAll('[data-auto-dismiss]').forEach(alert => {
+            window.setTimeout(() => {
+                if (window.bootstrap?.Alert) {
+                    window.bootstrap.Alert.getOrCreateInstance(alert).close();
+                } else {
+                    alert.remove();
+                }
+            }, Number(alert.dataset.autoDismiss) || 5000);
+        });
+    }
+
+    function initializeCourseAnnouncement() {
+        const element = document.getElementById('courseAnnouncementModal');
+        if (!element || !window.bootstrap?.Modal) return;
+
+        const storageKey = element.dataset.announcementKey || 'umsad.courseAnnouncement.v1';
+        try {
+            if (window.localStorage.getItem(storageKey) === 'seen') return;
+        } catch (error) {
+            // Private browsing/storage restrictions should not hide the course.
+        }
+
+        window.setTimeout(() => {
+            try {
+                window.bootstrap.Modal.getOrCreateInstance(element).show();
+                try {
+                    window.localStorage.setItem(storageKey, 'seen');
+                } catch (error) {
+                    // The modal still works when persistent storage is blocked.
+                }
+            } catch (error) {
+                // Leave the rest of the homepage fully usable if Bootstrap fails.
+            }
+        }, prefersReducedMotion() ? 0 : 280);
+    }
+
+    function prefersReducedMotion() {
+        return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function showMessage(message, type = 'success') {
+        const host = document.querySelector('.flash-region') || document.querySelector('.main-content') || document.body;
+        const alert = document.createElement('div');
+        alert.className = 'app-toast alert alert-' + type;
+        alert.setAttribute('role', type === 'danger' ? 'alert' : 'status');
+
+        const icon = document.createElement('i');
+        icon.className = type === 'success'
+            ? 'fas fa-circle-check'
+            : type === 'warning' ? 'fas fa-triangle-exclamation' : 'fas fa-circle-exclamation';
+        icon.setAttribute('aria-hidden', 'true');
+
+        const copy = document.createElement('span');
+        copy.textContent = String(message);
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'btn-close';
+        close.setAttribute('aria-label', 'Dismiss message');
+        close.addEventListener('click', () => alert.remove());
+
+        alert.append(icon, copy, close);
+        host.prepend(alert);
+        requestAnimationFrame(() => alert.classList.add('is-visible'));
+        window.setTimeout(() => {
+            alert.classList.remove('is-visible');
+            window.setTimeout(() => alert.remove(), 220);
+        }, 5200);
+    }
+
+    const showSuccess = message => showMessage(message, 'success');
+    const showError = message => showMessage(message, 'danger');
+    const showWarning = message => showMessage(message, 'warning');
+
+    async function apiRequest(path, options = {}) {
+        const headers = new Headers(options.headers || {});
+        headers.set('Accept', 'application/json');
+        if (csrfToken) headers.set('X-CSRF-Token', csrfToken);
+
+        let body = options.body;
+        if (body && !(body instanceof FormData) && typeof body !== 'string') {
+            headers.set('Content-Type', 'application/json');
+            body = JSON.stringify(body);
+        }
+
+        const response = await fetch(/^https?:/.test(path) ? path : baseUrl + path, {
+            ...options,
+            body,
+            headers,
+            credentials: 'same-origin'
+        });
+
+        let result;
+        try {
+            result = await response.json();
+        } catch (error) {
+            throw new Error('The server returned an unexpected response.');
+        }
+
+        if (!response.ok || result.success === false) {
+            throw new Error(result.message || 'The request could not be completed.');
+        }
+        return result;
+    }
+
+    function makeRequest(url, method = 'GET', data = null, callback = null) {
+        return apiRequest(url, {
+            method,
+            body: method === 'GET' ? null : data
+        }).then(response => {
+            if (callback) callback(response);
+            return response;
+        }).catch(error => {
+            showError(error.message);
+            throw error;
+        });
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (!input) return;
+
+        const reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        if (icon) {
+            icon.classList.toggle('fa-eye', !reveal);
+            icon.classList.toggle('fa-eye-slash', reveal);
+        }
+
+        const button = input.parentElement?.querySelector('.password-toggle');
+        button?.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        }).format(Number(amount) || 0);
+    }
+
+    function formatDate(date) {
+        const value = new Date(date);
+        return Number.isNaN(value.getTime())
+            ? ''
+            : new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }).format(value);
+    }
+
+    function getQueryParam(param) {
+        return new URLSearchParams(window.location.search).get(param);
+    }
+
+    function debounce(func, delay = 250) {
+        let timeoutId;
+        return function (...args) {
+            window.clearTimeout(timeoutId);
+            timeoutId = window.setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    function throttle(func, limit = 100) {
+        let waiting = false;
+        return function (...args) {
+            if (waiting) return;
+            func.apply(this, args);
+            waiting = true;
+            window.setTimeout(() => { waiting = false; }, limit);
+        };
+    }
+
+    async function copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(String(text));
+            showSuccess('Copied to clipboard.');
+        } catch (error) {
+            showError('Unable to copy to your clipboard.');
+        }
+    }
+
+    const Storage = {
+        set(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        },
+        get(key) {
+            const value = localStorage.getItem(key);
+            if (!value) return null;
+            try {
+                return JSON.parse(value);
+            } catch (error) {
+                return null;
+            }
+        },
+        remove(key) {
+            localStorage.removeItem(key);
+        },
+        clear() {
+            localStorage.clear();
         }
     };
-}
 
-// Export for use in other scripts
-window.UmsadTechHelper = {
-    showSuccess,
-    showError,
-    showWarning,
-    makeRequest,
-    formatCurrency,
-    formatDate,
-    getQueryParam,
-    Storage,
-    initializePaystackPayment,
-    verifyPaystackPayment
-};
+    window.togglePasswordVisibility = togglePasswordVisibility;
+    window.UmsadTechHelper = {
+        apiRequest,
+        makeRequest,
+        showSuccess,
+        showError,
+        showWarning,
+        formatCurrency,
+        formatDate,
+        getQueryParam,
+        copyToClipboard,
+        Storage
+    };
+})();

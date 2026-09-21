@@ -1,0 +1,116 @@
+/* Dashboard overview presentation; public pages retain their existing design. */
+body.dashboard-overview { --student-nav-accent: #6155d8; --student-nav-accent-soft: #efedfc; background: #f5f5fa; color: #252840; }
+.dashboard-overview .main-content { min-width: 0; padding-top: 0; }
+.dashboard-overview .workspace-page, .dashboard-overview .admin-wrap, .dashboard-overview .instructor-wrap { width: 100%; max-width: 1560px; margin: 0 auto; padding: clamp(20px, 3vw, 40px) !important; }
+.dashboard-overview .student-app-header { position: sticky; top: 0; z-index: 1030; }
+.dashboard-overview .student-app-topbar { box-shadow: none; background: #fff; }
+.dashboard-overview .student-app-topbar__inner { max-width: none; padding-inline: clamp(16px, 3vw, 40px); min-height: 80px; }
+.dashboard-overview .workspace-brand-label { color: #53586f; max-width: 180px; }
+.dashboard-overview .student-app-topbar__avatar { box-shadow: none; background: #efedfc; border: 1px solid #dedaf7; color: #5146bc; }
+.dashboard-overview .brand-logo-frame--student-app { width: 72px; box-shadow: none; }
+.dashboard-sidebar { display: none; }
+.dashboard-overview .workspace-hero, .dashboard-overview .dashboard-welcome, .dashboard-overview .admin-heading { position: relative; padding: clamp(24px, 3vw, 40px); margin-bottom: 24px; border: 0; border-radius: 22px; background: radial-gradient(ellipse at top right, #554c9b 0, transparent 62%), #24233f; color: #fff; box-shadow: none; }
+.dashboard-overview .workspace-hero { grid-template-columns: minmax(0, 1fr) 190px; }
+.dashboard-overview .workspace-hero h1, .dashboard-overview .dashboard-welcome h1, .dashboard-overview .admin-heading h1 { max-width: 780px; font-size: clamp(1.75rem, 3vw, 2.75rem); line-height: 1.16; letter-spacing: -.045em; color: #fff; }
+.dashboard-overview .workspace-hero p, .dashboard-overview .dashboard-welcome p, .dashboard-overview .admin-heading p { color: #d1cee5 !important; font-size: .94rem; max-width: 630px; }
+.dashboard-overview .workspace-hero .workspace-eyebrow, .dashboard-overview .admin-heading > div > span { color: #d1c9ff !important; }
+.dashboard-overview .workspace-hero .btn-primary, .dashboard-overview .admin-heading .btn-primary { background: #8474f0; border-color: #8474f0; color: #fff; }
+.dashboard-overview .admin-heading .btn-outline-primary { color: #fff; border-color: #a39bc8; }
+.dashboard-overview .workspace-hero__badge { min-width: 170px; background: #ffffff0d; border: 1px solid #ffffff26; box-shadow: none; }
+.dashboard-overview .workspace-hero__badge small { color: #d1cee5; }
+.dashboard-overview .workspace-hero__badge strong { color: #fff; font-size: 2.8rem; }
+.dashboard-overview .workspace-metric-card, .dashboard-overview .admin-metric, .dashboard-overview .metric-card { border: 1px solid #e5e5ef; border-radius: 16px; background: #fff; color: #252840; box-shadow: 0 3px 10px #25284003; padding: 22px; }
+.dashboard-overview .admin-metric strong, .dashboard-overview .metric-card strong, .dashboard-overview .workspace-metric-card > strong { color: #282640; font-size: clamp(1.45rem, 2.3vw, 2rem); overflow-wrap: anywhere; }
+.dashboard-overview .admin-metric span, .dashboard-overview .metric-card span { color: #686c80; }
+.dashboard-overview .admin-metric__icon, .dashboard-overview .metric-icon, .dashboard-overview .workspace-metric-card__icon { background: #efedfc; color: #6155d8; border-radius: 12px; width: 42px; height: 42px; }
+.dashboard-overview .workspace-panel, .dashboard-overview .admin-panel, .dashboard-overview .dashboard-panel, .dashboard-surface { border: 1px solid #e5e5ef; border-radius: 18px; box-shadow: 0 3px 10px #25284003; background: #fff; }
+.dashboard-overview .workspace-panel h2, .dashboard-overview .admin-panel h2, .dashboard-overview .dashboard-panel h2, .dashboard-surface h2 { font-family: var(--font-display); font-size: 1.1rem; line-height: 1.35; letter-spacing: -.025em; margin: 0; color: #282640; }
+.dashboard-overview .workspace-card { border-radius: 14px; box-shadow: none; }
+.dashboard-overview .workspace-card h3 { line-height: 1.4; }
+.dashboard-overview .workspace-progress span, .dashboard-overview .progress-slim span { background: #7768de; }
+.dashboard-insights { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; margin: 0 0 24px; }
+.dashboard-surface { padding: 24px; min-width: 0; }
+.dashboard-section-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; }
+.dashboard-kicker { display: block; color: #7b7893; font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 6px; }
+.dashboard-section-heading form { display: flex; gap: 6px; }
+.dashboard-section-heading select { min-width: 120px; }
+.dashboard-activity-total { display: flex; align-items: baseline; gap: 12px; margin: 22px 0; }
+.dashboard-activity-total strong { font: 700 2.5rem var(--font-display); letter-spacing: -.06em; }
+.dashboard-activity-total span { color: #777b8c; font-size: .8rem; }
+.dashboard-chart { display: flex; align-items: end; gap: clamp(3px, 1vw, 12px); height: 144px; border-bottom: 1px solid #e8e7f0; background: repeating-linear-gradient(to top, transparent 0, transparent 47px, #f0eff6 47px, #f0eff6 48px); }
+.dashboard-chart__column { flex: 1; height: 100%; display: flex; align-items: end; justify-content: center; }
+.dashboard-chart__column span { width: 100%; max-width: 40px; border-radius: 6px 6px 0 0; background: linear-gradient(#a89aec, #6b5bd2); }
+.dashboard-chart-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: .7rem; color: #777b8c; }
+.dashboard-chart-data { margin-top: 20px; font-size: .78rem; color: #686c80; }
+.dashboard-chart-data summary { cursor: pointer; padding-block: 8px; }
+.dashboard-chart-data .table-responsive { max-height: 240px; }
+.dashboard-count { background: #efedfc; color: #6155d8; padding: 5px 12px; border-radius: 9px; font-weight: 800; }
+.dashboard-priority { display: grid; grid-template-columns: 36px minmax(0, 1fr) 14px; align-items: center; gap: 12px; padding: 14px 0; color: #30334b; text-decoration: none; border-bottom: 1px solid #efeff5; }
+.dashboard-priority:hover strong { color: #6155d8; }
+.dashboard-priority__icon { display: grid; place-items: center; width: 36px; height: 36px; background: #f4f2fc; color: #8075be; border-radius: 10px; }
+.dashboard-priority strong { display: block; font-size: .85rem; line-height: 1.4; }
+.dashboard-priority small { display: block; margin-top: 3px; font-size: .72rem; color: #777b8c; }
+.dashboard-panel-link { display: flex; justify-content: space-between; align-items: center; padding-top: 18px; color: #6155d8; font-size: .82rem; font-weight: 700; text-decoration: none; }
+.dashboard-clear { text-align: center; padding: 42px 12px 20px; }
+.dashboard-clear > i { font-size: 2rem; color: #418879; margin-bottom: 14px; }
+.dashboard-clear h3 { font-size: 1rem; }
+.dashboard-clear p { color: #777b8c; font-size: .85rem; }
+.dashboard-overview :is(h1,h2,h3,strong,p,small,td) { overflow-wrap: anywhere; }
+.dashboard-overview :is(.workspace-grid,.workspace-card-grid,.workspace-metric-grid) > *, .dashboard-overview .row > * { min-width: 0; }
+.dashboard-overview .workspace-grid { grid-template-columns: minmax(0, 1.7fr) minmax(270px, 1fr); }
+.dashboard-overview .workspace-card-grid { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
+.dashboard-overview .workspace-footer { margin-top: 0; }
+.dashboard-overview a:focus-visible, .dashboard-overview button:focus-visible, .dashboard-overview summary:focus-visible { outline: 3px solid #a895ed; outline-offset: 3px; }
+@media (min-width: 1200px) {
+    body.dashboard-overview { padding-left: 240px; }
+    .dashboard-sidebar { display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; z-index: 1040; width: 240px; padding: 24px 18px; background: #24233f; color: #fff; overflow-y: auto; }
+    .dashboard-sidebar__brand { display: flex; flex-direction: column; align-items: flex-start; color: #b6b2cd; text-decoration: none; font-size: .7rem; margin: 0 12px 28px; }
+    .dashboard-sidebar__brand img { object-fit: contain; margin-left: -12px; }
+    .dashboard-sidebar__label { color: #b6b2cd; text-transform: uppercase; font-size: .62rem; letter-spacing: .12em; font-weight: 700; margin: 0 12px 12px; }
+    .dashboard-sidebar nav { display: grid; gap: 4px; }
+    .dashboard-sidebar nav a { min-height: 46px; display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 10px; color: #cecbe0; font-size: .85rem; text-decoration: none; font-weight: 500; }
+    .dashboard-sidebar nav a i { width: 18px; text-align: center; }
+    .dashboard-sidebar nav a:hover { background: #ffffff0c; color: #fff; }
+    .dashboard-sidebar nav a.is-active { color: #fff; background: #6a5bcc; }
+    .dashboard-sidebar__help { padding: 16px; border: 1px solid #ffffff18; border-radius: 14px; margin: 32px 0 24px; background: #ffffff06; }
+    .dashboard-sidebar__help > i { display: block; color: #afa3f4; margin-bottom: 10px; }
+    .dashboard-sidebar__help strong { font-size: .85rem; }
+    .dashboard-sidebar__help p { font-size: .73rem; color: #b6b2cd; margin: 6px 0 12px; }
+    .dashboard-sidebar__help a { color: #dad3ff; font-size: .73rem; text-decoration: none; }
+    .dashboard-sidebar__account { margin-top: auto; padding-top: 16px; border-top: 1px solid #ffffff18; }
+    .dashboard-overview .student-app-topbar__links, .dashboard-overview .student-app-bottom-nav { display: none; }
+    .dashboard-overview .student-app-topbar__inner { grid-template-columns: minmax(0, 1fr) auto; }
+    .dashboard-overview .student-app-topbar__brand .brand-logo-frame { display: none; }
+    .dashboard-overview .workspace-brand-label { margin: 0; max-width: none; font-size: .85rem; letter-spacing: 0; text-transform: none; }
+}
+@media (max-width: 1199px) {
+    .dashboard-overview .student-app-topbar__menu-button { display: grid; }
+    .dashboard-overview .student-app-topbar__links { display: none; }
+    .dashboard-overview .student-app-topbar__inner { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; }
+    .dashboard-overview .student-app-topbar__actions { grid-column: auto; }
+    .dashboard-overview .workspace-grid { grid-template-columns: 1fr; }
+    .dashboard-overview .workspace-grid > aside { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .dashboard-overview .workspace-grid > aside > section { margin-top: 0 !important; }
+}
+@media (max-width: 767px) {
+    .dashboard-insights { grid-template-columns: 1fr; gap: 16px; }
+    .dashboard-overview .workspace-grid > aside { display: block; }
+    .dashboard-overview .workspace-grid > aside > section { margin-top: 16px !important; }
+    .dashboard-overview .workspace-hero { grid-template-columns: 1fr; gap: 20px; }
+    .dashboard-overview .workspace-hero__aside { justify-content: flex-start; }
+    .dashboard-overview .workspace-hero__badge { display: flex; align-items: center; gap: 16px; width: 100%; min-width: 0; }
+    .dashboard-overview .workspace-hero__badge strong { margin: 0; font-size: 1.7rem; }
+    .dashboard-overview .workspace-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .dashboard-overview .row.g-3 > .col-sm-6 { width: 50%; }
+    .dashboard-overview .admin-metric, .dashboard-overview .metric-card, .dashboard-overview .workspace-metric-card { padding: 16px; }
+    .dashboard-overview .workspace-brand-label { display: none; }
+    .dashboard-overview .student-app-topbar__actions > a[title="Course catalog"] { display: none; }
+    .dashboard-overview .student-app-bottom-nav { overflow-x: auto; justify-content: flex-start; padding-bottom: env(safe-area-inset-bottom); }
+    .dashboard-overview .student-app-bottom-nav__item { flex: 1 0 65px; min-width: 65px; min-height: 62px; font-size: .62rem; }
+    .dashboard-overview .student-app-menu__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-surface { padding: 20px; }
+    .dashboard-overview .workspace-footer__inner { flex-wrap: wrap; padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .dashboard-overview *, .dashboard-overview *::before, .dashboard-overview *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+@media print { body.dashboard-overview { padding: 0; } .dashboard-sidebar, .dashboard-overview .student-app-header, .dashboard-overview .student-app-bottom-nav { display: none !important; } .dashboard-insights { break-inside: avoid; } }
+.dashboard-overview .workspace-hero__badge strong { white-space: nowrap; flex-shrink: 0; }

@@ -1,230 +1,236 @@
 <?php
-$pageTitle = 'Courses';
-require_once 'templates/header.php';
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/Auth.php';
+require_once __DIR__ . '/includes/helpers.php';
 
-// Get filters
-$category = sanitize($_GET['category'] ?? '');
-$search = sanitize($_GET['search'] ?? '');
-$page = intval($_GET['page'] ?? 1);
+$db = new Database();
+$auth = new Auth($db);
+
+$category = trim((string) ($_GET['category'] ?? ''));
+$search = trim((string) ($_GET['search'] ?? ''));
+$page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = 12;
+
+if (mb_strlen($category) > 100) {
+    $category = mb_substr($category, 0, 100);
+}
+if (mb_strlen($search) > 120) {
+    $search = mb_substr($search, 0, 120);
+}
+
+$filters = ' WHERE c.is_published = 1';
+if ($category !== '') {
+    $filters .= ' AND c.category = :category';
+}
+if ($search !== '') {
+    $filters .= ' AND (c.title LIKE :search OR c.description LIKE :search)';
+}
+
+$bindFilters = static function (Database $database) use ($category, $search): void {
+    if ($category !== '') {
+        $database->bind(':category', $category);
+    }
+    if ($search !== '') {
+        $database->bind(':search', '%' . $search . '%');
+    }
+};
+
+$db->query('SELECT COUNT(DISTINCT c.id) AS total FROM courses c' . $filters);
+$bindFilters($db);
+$totalCourses = (int) (($db->single()['total'] ?? 0));
+$totalPages = max(1, (int) ceil($totalCourses / $limit));
+$page = min($page, $totalPages);
 $offset = ($page - 1) * $limit;
 
-// Build query
 $query = '
-    SELECT c.*, u.full_name as instructor_name, 
-           COUNT(DISTINCT se.id) as student_count,
-           AVG(cr.rating) as avg_rating
+    SELECT c.*, u.full_name AS instructor_name,
+           (SELECT COUNT(*) FROM student_enrollments se WHERE se.course_id = c.id) AS student_count,
+           (SELECT AVG(cr.rating) FROM course_reviews cr WHERE cr.course_id = c.id AND cr.is_approved = 1) AS avg_rating,
+           (SELECT COUNT(*) FROM course_reviews cr WHERE cr.course_id = c.id AND cr.is_approved = 1) AS review_count
     FROM courses c
     LEFT JOIN users u ON c.instructor_id = u.id
-    LEFT JOIN student_enrollments se ON c.id = se.course_id
-    LEFT JOIN course_reviews cr ON c.id = cr.course_id AND cr.is_approved = 1
-    WHERE c.is_published = 1
-';
+' . $filters . '
+    ORDER BY c.created_at DESC
+    LIMIT ' . $limit . ' OFFSET ' . $offset;
 
-$countQuery = 'SELECT COUNT(DISTINCT c.id) as total FROM courses c WHERE c.is_published = 1';
-
-// Apply filters
-if (!empty($category)) {
-    $query .= ' AND c.category = :category';
-    $countQuery .= ' AND c.category = :category';
-}
-
-if (!empty($search)) {
-    $query .= ' AND (c.title LIKE :search OR c.description LIKE :search)';
-    $countQuery .= ' AND (c.title LIKE :search OR c.description LIKE :search)';
-}
-
-// Group and order
-$query .= ' GROUP BY c.id ORDER BY c.created_at DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
-
-// Get total count
-$db->query($countQuery);
-if (!empty($category)) {
-    $db->bind(':category', $category);
-}
-if (!empty($search)) {
-    $db->bind(':search', '%' . $search . '%');
-}
-$totalResult = $db->single();
-$totalCourses = $totalResult['total'] ?? 0;
-$totalPages = ceil($totalCourses / $limit);
-
-// Get courses
 $db->query($query);
-if (!empty($category)) {
-    $db->bind(':category', $category);
-}
-if (!empty($search)) {
-    $db->bind(':search', '%' . $search . '%');
-}
+$bindFilters($db);
 $courses = $db->resultSet();
 
-// Get unique categories
-$db->query('SELECT DISTINCT category FROM courses WHERE is_published = 1 AND category IS NOT NULL ORDER BY category');
+$db->query('SELECT DISTINCT category FROM courses WHERE is_published = 1 AND category IS NOT NULL AND category <> "" ORDER BY category');
 $categories = $db->resultSet();
+
+$paginationUrl = static function (int $targetPage) use ($category, $search): string {
+    $params = ['page' => $targetPage];
+    if ($category !== '') {
+        $params['category'] = $category;
+    }
+    if ($search !== '') {
+        $params['search'] = $search;
+    }
+    return '?' . http_build_query($params);
+};
+
+$pageTitle = 'Explore courses';
+require_once __DIR__ . '/templates/header.php';
 ?>
 
-<div class="container my-5">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="mb-2">Explore Our Courses</h1>
-            <p class="text-muted">Choose from our wide range of professional courses</p>
+<section class="page-hero page-hero-courses">
+    <div class="container">
+        <div class="page-hero-content">
+            <span class="eyebrow text-white">Learn with direction</span>
+            <h1>Find the course that moves your career forward.</h1>
+            <p>Explore practical, project-led learning designed for ambitious people building modern digital skills.</p>
         </div>
     </div>
+</section>
 
-    <!-- Search and Filter Section -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <form method="GET" class="d-flex gap-2">
-                <input type="text" 
-                       class="form-control" 
-                       name="search" 
-                       placeholder="Search courses..."
-                       value="<?php echo $search; ?>">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> Search
-                </button>
-            </form>
-        </div>
-        <div class="col-md-4">
-            <form method="GET">
-                <select class="form-select" name="category" onchange="this.form.submit()">
-                    <option value="">All Categories</option>
-                    <?php foreach ($categories as $cat): ?>
-                        <option value="<?php echo sanitize($cat['category']); ?>" 
-                                <?php echo $category === $cat['category'] ? 'selected' : ''; ?>>
-                            <?php echo sanitize($cat['category']); ?>
+<section class="catalog-section">
+    <div class="container">
+        <form method="GET" class="filter-panel" aria-label="Filter courses">
+            <div class="filter-search">
+                <label class="visually-hidden" for="course-search">Search courses</label>
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" id="course-search" name="search" value="<?php echo sanitize($search); ?>"
+                       placeholder="Search by skill, topic or keyword">
+            </div>
+
+            <div class="filter-category">
+                <label class="visually-hidden" for="course-category">Course category</label>
+                <select id="course-category" name="category">
+                    <option value="">All categories</option>
+                    <?php foreach ($categories as $item): ?>
+                        <option value="<?php echo sanitize($item['category']); ?>"
+                            <?php echo $category === $item['category'] ? 'selected' : ''; ?>>
+                            <?php echo sanitize($item['category']); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
-            </form>
-        </div>
-    </div>
+            </div>
 
-    <!-- Results Info -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <p class="text-muted">
-                Showing <strong><?php echo count($courses); ?></strong> of <strong><?php echo $totalCourses; ?></strong> courses
-                <?php if (!empty($search)): ?>
-                    for "<strong><?php echo $search; ?></strong>"
-                <?php endif; ?>
-            </p>
-        </div>
-    </div>
+            <button type="submit" class="btn btn-primary">
+                Find courses <i class="fas fa-arrow-right" aria-hidden="true"></i>
+            </button>
 
-    <!-- Courses Grid -->
-    <div class="row mb-5">
+            <?php if ($category !== '' || $search !== ''): ?>
+                <a href="<?php echo APP_URL; ?>/courses.php" class="filter-clear">Clear filters</a>
+            <?php endif; ?>
+        </form>
+
+        <div class="catalog-heading">
+            <div>
+                <span class="eyebrow eyebrow-dark"><?php echo $totalCourses; ?> learning path<?php echo $totalCourses === 1 ? '' : 's'; ?></span>
+                <h2><?php echo $search !== '' ? 'Results for “' . sanitize($search) . '”' : 'Courses built for real progress'; ?></h2>
+            </div>
+            <p>Learn at your pace. Apply each idea through practical work.</p>
+        </div>
+
         <?php if (!empty($courses)): ?>
-            <?php foreach ($courses as $course): ?>
-                <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card course-card h-100">
-                        <div class="position-relative">
-                            <img src="<?php echo $course['course_image'] ?? 'https://via.placeholder.com/300x200'; ?>" 
-                                 alt="<?php echo sanitize($course['title']); ?>" 
-                                 class="card-img-top course-image"
-                                 style="object-fit: cover;">
-                            <?php if ($course['discount_price']): ?>
-                                <span class="course-badge">
-                                    <?php 
-                                    $discount = (($course['price'] - $course['discount_price']) / $course['price']) * 100;
-                                    echo round($discount) . '% OFF';
-                                    ?>
-                                </span>
+            <div class="course-grid">
+                <?php foreach ($courses as $course): ?>
+                    <?php
+                    $rating = (float) ($course['avg_rating'] ?? 0);
+                    $image = $course['course_image'] ?: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=85';
+                    $pricing = coursePriceDetails($course);
+                    $effectivePrice = (float) $pricing['effective_amount'];
+                    ?>
+                    <article class="course-card">
+                        <a class="course-card-media" href="<?php echo APP_URL; ?>/course-detail.php?id=<?php echo (int) $course['id']; ?>"
+                           aria-label="View <?php echo sanitize($course['title']); ?>">
+                            <img src="<?php echo sanitize($image); ?>" alt="" loading="lazy">
+                            <span class="course-category"><?php echo sanitize($course['category'] ?: 'Digital skills'); ?></span>
+                            <?php if ($effectivePrice === 0.0): ?>
+                                <span class="course-badge">Free</span>
+                            <?php elseif ($pricing['has_discount']): ?>
+                                <span class="course-badge">Special offer</span>
                             <?php endif; ?>
-                        </div>
-                        <div class="card-body">
-                            <span class="badge bg-info mb-2"><?php echo sanitize($course['category'] ?? 'General'); ?></span>
-                            <h5 class="card-title"><?php echo sanitize($course['title']); ?></h5>
-                            <p class="text-muted small mb-2">
-                                <i class="fas fa-chalkboard-user"></i>
-                                <?php echo sanitize($course['instructor_name'] ?? 'Unknown Instructor'); ?>
-                            </p>
-                            <p class="card-text text-truncate small">
-                                <?php echo substr(sanitize($course['description']), 0, 80) . '...'; ?>
-                            </p>
+                        </a>
 
-                            <!-- Rating -->
-                            <div class="course-rating mb-2">
-                                <?php
-                                $rating = round($course['avg_rating'] ?? 0);
-                                for ($i = 0; $i < 5; $i++) {
-                                    if ($i < $rating) {
-                                        echo '<i class="fas fa-star"></i>';
-                                    } elseif ($i < $rating - 0.5) {
-                                        echo '<i class="fas fa-star-half-alt"></i>';
-                                    } else {
-                                        echo '<i class="far fa-star"></i>';
-                                    }
-                                }
-                                ?>
-                                <span class="ms-1 small">(<?php echo $course['student_count']; ?>)</span>
+                        <div class="course-card-body">
+                            <div class="course-meta">
+                                <span><i class="far fa-user" aria-hidden="true"></i> <?php echo sanitize($course['instructor_name'] ?: 'Umsad Tech'); ?></span>
+                                <span><i class="fas fa-users" aria-hidden="true"></i> <?php echo (int) $course['student_count']; ?></span>
                             </div>
 
-                            <!-- Price -->
-                            <div class="mb-3">
-                                <?php if ($course['discount_price']): ?>
-                                    <span class="course-price"><?php echo formatCurrency($course['discount_price']); ?></span>
-                                    <small class="text-muted text-decoration-line-through">
-                                        <?php echo formatCurrency($course['price']); ?>
-                                    </small>
+                            <h3><a href="<?php echo APP_URL; ?>/course-detail.php?id=<?php echo (int) $course['id']; ?>"><?php echo sanitize($course['title']); ?></a></h3>
+                            <p><?php echo sanitize(mb_strimwidth((string) ($course['description'] ?? ''), 0, 112, '…')); ?></p>
+
+                            <div class="course-rating" aria-label="<?php echo number_format($rating, 1); ?> out of 5 stars">
+                                <span aria-hidden="true">
+                                    <?php for ($star = 1; $star <= 5; $star++): ?>
+                                        <?php if ($rating >= $star): ?>
+                                            <i class="fas fa-star"></i>
+                                        <?php elseif ($rating >= $star - 0.5): ?>
+                                            <i class="fas fa-star-half-alt"></i>
+                                        <?php else: ?>
+                                            <i class="far fa-star"></i>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+                                </span>
+                                <small><?php echo $course['review_count'] ? number_format($rating, 1) . ' (' . (int) $course['review_count'] . ')' : 'New course'; ?></small>
+                            </div>
+                        </div>
+
+                        <div class="course-card-footer">
+                            <div class="course-price-wrap">
+                                <?php if ($effectivePrice === 0.0): ?>
+                                    <strong class="course-price">Free</strong>
                                 <?php else: ?>
-                                    <span class="course-price"><?php echo formatCurrency($course['price']); ?></span>
+                                    <strong class="course-price"><?php echo formatCurrency($effectivePrice); ?></strong>
+                                    <?php if ($pricing['has_discount']): ?>
+                                        <del><?php echo formatCurrency($pricing['base_amount']); ?></del>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
-                        </div>
-                        <div class="card-footer bg-white border-top">
-                            <a href="<?php echo APP_URL; ?>/course-detail.php?id=<?php echo $course['id']; ?>" class="btn btn-primary btn-sm w-100">
-                                <i class="fas fa-eye"></i> View Course
+                            <a class="round-link" href="<?php echo APP_URL; ?>/course-detail.php?id=<?php echo (int) $course['id']; ?>" aria-label="Open course">
+                                <i class="fas fa-arrow-right" aria-hidden="true"></i>
                             </a>
                         </div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
+                    </article>
+                <?php endforeach; ?>
+            </div>
         <?php else: ?>
-            <div class="col-12">
-                <div class="alert alert-info text-center py-5">
-                    <i class="fas fa-search fa-3x mb-3 d-block"></i>
-                    <h5>No courses found</h5>
-                    <p>Try adjusting your search or filters</p>
-                </div>
+            <div class="empty-state">
+                <span class="empty-state-icon"><i class="fas fa-compass" aria-hidden="true"></i></span>
+                <h2>No matching courses yet</h2>
+                <p>Try a broader keyword or clear your filters to see every learning path.</p>
+                <a href="<?php echo APP_URL; ?>/courses.php" class="btn btn-primary">Browse all courses</a>
             </div>
         <?php endif; ?>
-    </div>
 
-    <!-- Pagination -->
-    <?php if ($totalPages > 1): ?>
-        <nav aria-label="Page navigation" class="mb-5">
-            <ul class="pagination justify-content-center">
+        <?php if ($totalPages > 1): ?>
+            <nav class="pagination-wrap" aria-label="Course results pages">
                 <?php if ($page > 1): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=1<?php echo !empty($category) ? '&category=' . $category : ''; ?><?php echo !empty($search) ? '&search=' . $search : ''; ?>">First</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<?php echo $page - 1; ?><?php echo !empty($category) ? '&category=' . $category : ''; ?><?php echo !empty($search) ? '&search=' . $search : ''; ?>">Previous</a>
-                    </li>
+                    <a class="page-arrow" href="<?php echo sanitize($paginationUrl($page - 1)); ?>">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Previous
+                    </a>
+                <?php else: ?>
+                    <span class="page-arrow is-disabled" aria-disabled="true">
+                        <i class="fas fa-arrow-left" aria-hidden="true"></i> Previous
+                    </span>
                 <?php endif; ?>
-
-                <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                    <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                        <a class="page-link" href="?page=<?php echo $i; ?><?php echo !empty($category) ? '&category=' . $category : ''; ?><?php echo !empty($search) ? '&search=' . $search : ''; ?>">
-                            <?php echo $i; ?>
+                <div class="page-numbers">
+                    <?php for ($number = max(1, $page - 2); $number <= min($totalPages, $page + 2); $number++): ?>
+                        <a href="<?php echo sanitize($paginationUrl($number)); ?>"
+                           class="<?php echo $number === $page ? 'is-active' : ''; ?>"
+                           <?php echo $number === $page ? 'aria-current="page"' : ''; ?>>
+                            <?php echo $number; ?>
                         </a>
-                    </li>
-                <?php endfor; ?>
-
+                    <?php endfor; ?>
+                </div>
                 <?php if ($page < $totalPages): ?>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<?php echo $page + 1; ?><?php echo !empty($category) ? '&category=' . $category : ''; ?><?php echo !empty($search) ? '&search=' . $search : ''; ?>">Next</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link" href="?page=<?php echo $totalPages; ?><?php echo !empty($category) ? '&category=' . $category : ''; ?><?php echo !empty($search) ? '&search=' . $search : ''; ?>">Last</a>
-                    </li>
+                    <a class="page-arrow" href="<?php echo sanitize($paginationUrl($page + 1)); ?>">
+                        Next <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    </a>
+                <?php else: ?>
+                    <span class="page-arrow is-disabled" aria-disabled="true">
+                        Next <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    </span>
                 <?php endif; ?>
-            </ul>
-        </nav>
-    <?php endif; ?>
-</div>
+            </nav>
+        <?php endif; ?>
+    </div>
+</section>
 
-<?php require_once 'templates/footer.php'; ?>
+<?php require_once __DIR__ . '/templates/footer.php'; ?>
