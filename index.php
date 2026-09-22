@@ -43,7 +43,7 @@ $courseAnnouncementPricing = $courseAnnouncement ? coursePriceDetails($courseAnn
                 <div class="hero-copy-block">
                     <span class="eyebrow eyebrow-light">
                         <span class="eyebrow-dot" aria-hidden="true"></span>
-                        Practical TEST learning for real-world growth
+                        Practical TEST new app learning for real-world growth
                     </span>
                     <h1 id="hero-title">Learn the skills.<br><span>Build what matters.</span></h1>
                     <p class="hero-lead">Career-focused technology courses that turn complex ideas into practical skills—one clear lesson, useful project and confident step at a time.</p>
